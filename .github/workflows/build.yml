@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Baixar repositório
+      - name: Baixar repositorio
         uses: actions/checkout@v4
 
       - name: Configurar Java
@@ -23,38 +23,46 @@ jobs:
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Instalar ferramentas Android
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Aceitar licencas e instalar SDK
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Encontrar e extrair projeto
+      - name: Encontrar ZIP do projeto
         run: |
           ZIP_FILE=$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERRO: Nenhum arquivo ZIP encontrado na raiz do repositório."
+            echo "ERRO: Nenhum ZIP encontrado na raiz do repositorio."
             ls -la
             exit 1
           fi
 
-          echo "Arquivo encontrado: $ZIP_FILE"
+          echo "ZIP encontrado: $ZIP_FILE"
+          mkdir -p projeto
           unzip -o "$ZIP_FILE" -d projeto
 
-      - name: Compilar APK
+      - name: Localizar projeto Android
         run: |
           SETTINGS=$(find projeto -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERRO: Não encontrei settings.gradle dentro do ZIP."
-            find projeto -maxdepth 3 -type f
+            echo "ERRO: O ZIP nao contem settings.gradle."
+            find projeto -maxdepth 4 -type f
             exit 1
           fi
 
-          cd "$(dirname "$SETTINGS")"
+          echo "Projeto encontrado em: $(dirname "$SETTINGS")"
+          echo "$(dirname "$SETTINGS")" > caminho_projeto.txt
+
+      - name: Compilar APK
+        run: |
+          cd "$(cat caminho_projeto.txt)"
           gradle assembleDebug
 
       - name: Disponibilizar APK
