@@ -1,0 +1,36 @@
+
+name: Build LISO AI APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Extrair projeto
+        run: |
+          unzip -o LISO-AI-Android-APK-Automatico.zip -d projeto
+          find projeto -name settings.gradle -o -name settings.gradle.kts
+
+      - name: Compilar APK
+        run: |
+          cd projeto/LisoAI-Android
+          gradle assembleDebug
+
+      - name: Salvar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LISO-AI-APK
+          path: projeto/**/app/build/outputs/apk/debug/*.apk
