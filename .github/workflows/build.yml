@@ -2,35 +2,64 @@
 name: Build LISO AI APK
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Extrair projeto
+      - name: Instalar ferramentas Android
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Encontrar e extrair projeto
         run: |
-          unzip -o LISO-AI-Android-APK-Automatico.zip -d projeto
-          find projeto -name settings.gradle -o -name settings.gradle.kts
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERRO: Nenhum arquivo ZIP encontrado na raiz do repositório."
+            ls -la
+            exit 1
+          fi
+
+          echo "Arquivo encontrado: $ZIP_FILE"
+          unzip -o "$ZIP_FILE" -d projeto
 
       - name: Compilar APK
         run: |
-          cd projeto/LisoAI-Android
+          SETTINGS=$(find projeto -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "ERRO: Não encontrei settings.gradle dentro do ZIP."
+            find projeto -maxdepth 3 -type f
+            exit 1
+          fi
+
+          cd "$(dirname "$SETTINGS")"
           gradle assembleDebug
 
-      - name: Salvar APK
+      - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: LISO-AI-APK
           path: projeto/**/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
